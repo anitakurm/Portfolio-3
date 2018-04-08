@@ -29,15 +29,168 @@ The questions you will have to answer are:
 
 1. Assess the relation between symptom severity and IQ (focus on visit 1 and children with ASD) and report the model, a plot of the model, a couple of lines describing the quality of the model and interpreting the results. P.S. Should you scale? P.P.S. Don't forget to motivate your priors. P.P.P.S. At least one plot for results and a plot for quality of each model (here and in the next questions) would be appreciated.
 1.1. Verbal IQ and ADOS
-1.2. Non Verbal IQ and ADOS
-1.3. Social IQ and ADOS
+   
+    ADOSi ~ Normal(mui,sigma)   [likelihood]  ADOSi - the symptom severity for individual i
+    mui = alpha + betaQ *Qi     [linear model] Qi - Individual i's IQ
+    alpha ~ Normal(0,1)         [alpha prior] 
+    beta ~ Normal(0,1)          [beta prior]
+    sigma ~ Uniform(0,1)        [sigma prior] 
 
 ```{r}
 #focus in visit 1, children with asd
+d = data %>%
+  #Only choose the first visit and children with asd
+  filter(Visit == 1& ASD==1)
 
 
+#assess the relation between symptom severity (ADOS) and IQ
+#1.1. verbal iq 
+#standardize predictor - good habit
+d$VerbalIQ.s <- (d$VerbalIQ-mean(d$VerbalIQ))/sd(d$VerbalIQ)
+d$ADOS.s <- (d$ADOS-mean(d$ADOS))/sd(d$ADOS)
+
+
+#fit the model
+m1<- map(
+  alist(
+    ADOS~dnorm(mu,sigma),
+    mu<- a + bQ *VerbalIQ.s, #linear model
+    a ~ dnorm(13,5), #expect that average IQ (when the standardized IQ = 0) to result in an average ADOS (around  13) and you expect the standard deviations to be 1. 2 standard deviations should explain 95% of the variance, being liberal here
+    bQ ~ dnorm(0,1), #might be not strict enough..
+    sigma~dunif(0,5) #ados is not standardized, it's mean value is around 13, 5 is a pretty liberal prior
+  ),
+   data= d)
+
+precis(m1)
 ```
+  alpha:
+  beta for Verbal IQ:
+  sigma: 
+  
+```{r}
+#compute percentile interval of mean
+#define sequence of weights to compute predictions for! 
+#these values will be on the horizontal axis
+VIQ.seq <- seq(from=-3, to = 3, length.out = 50) 
 
+#use link to compute mu
+#for each sample from posterior
+#and for each value of verbal iq in VIQ.seq
+mu <- link(m1, data = data.frame(VerbalIQ.s=VIQ.seq))
+mu.PI <- apply(mu, 2, PI)
+mu.mean <- apply(mu, 2, mean)
+
+#visualize it
+#show the first 100 values in the distribution of mu at each weight value  
+#use type="n" to hide raw data
+plot(ADOS ~ VerbalIQ.s, data=d, col= rangi2)
+#plot the MAP line, aka the mean mu for each verbal iq value
+lines(VIQ.seq, mu.mean)
+#plot a shaded region for 89%  PI
+shade(mu.PI, VIQ.seq)
+```
+  Look up how to interpret standardized scales..
+  Interpret this plot here.
+  
+
+1.2. Non Verbal IQ and ADOS
+```{r}
+#1.2. nonverbal iq 
+#standardize predictor - good habit
+d$NonVerbalIQ.s <- (d$NonVerbalIQ-mean(d$NonVerbalIQ))/sd(d$NonVerbalIQ)
+
+#fit the model
+m2<- map(
+  alist(
+    ADOS~dnorm(mu,sigma),
+    mu<- a + bNQ *NonVerbalIQ.s, #linear model
+    a ~ dnorm(13,1), #expect that average IQ (when the standardized IQ = 0) to result in an average ADOS (around  13) and you expect the standard deviations to be 1. 2 standard deviations should explain 95% of the variance, being liberal here
+    bNQ ~ dnorm(0,1), #might be not strict enough..
+    sigma~dunif(0,5) #ados is not standardized, it's mean value is around 13, 5 is a pretty liberal prior
+  ),
+   data= d)
+
+precis(m2)
+```
+  alpha:
+  beta:
+  sigma:
+
+```{r}
+#compute percentile interval of mean
+#define sequence of weights to compute predictions for! 
+#these values will be on the horizontal axis
+NVIQ.seq <- seq(from=-3, to = 3, length.out = 50) 
+
+#use link to compute mu
+#for each sample from posterior
+#and for each value of verbal iq in VIQ.seq
+mu <- link(m2, data = data.frame(NonVerbalIQ.s=NVIQ.seq))
+mu.PI <- apply(mu, 2, PI)
+mu.mean <- apply(mu, 2, mean)
+
+#visualize it
+#show the first 100 values in the distribution of mu at each weight value  
+#use type="n" to hide raw data
+plot(ADOS ~ NonVerbalIQ.s, data=d, col= rangi2)
+#plot the MAP line, aka the mean mu for each verbal iq value
+lines(NVIQ.seq, mu.mean)
+#plot a shaded region for 89%  PI
+shade(mu.PI, NVIQ.seq)
+```
+  Standardized scale again.
+  Interpret!
+  
+
+1.3. Social IQ and ADOS
+```{r}
+#1.3. social iq 
+#standardize predictor - good habit
+d$SocialIQ.s <- (d$SocialIQ-mean(d$SocialIQ))/sd(d$SocialIQ)
+
+#fit the model
+m3<- map(
+  alist(
+    ADOS~dnorm(mu,sigma),
+    mu<- a + bSQ *SocialIQ.s, #linear model
+    a ~ dnorm(13,1), #expect that average IQ (when the standardized IQ = 0) to result in an average ADOS (around  13) and you expect the standard deviations to be 1. 2 standard deviations should explain 95% of the variance, being liberal here
+    bSQ ~ dnorm(0,1), #might be not strict enough..
+    sigma~dunif(0,5) #ados is not standardized, it's mean value is around 13, 5 is a pretty liberal prior
+  ),
+   data= d)
+
+precis(m3)
+```
+  alpha:
+  beta:
+  sigma:
+  
+```{r}
+#compute percentile interval of mean
+#define sequence of weights to compute predictions for! 
+#these values will be on the horizontal axis
+SIQ.seq <- seq(from=-3, to = 3, length.out = 50) 
+
+#use link to compute mu
+#for each sample from posterior
+#and for each value of verbal iq in VIQ.seq
+mu <- link(m3, data = data.frame(SocialIQ.s=SIQ.seq))
+mu.PI <- apply(mu, 2, PI)
+mu.mean <- apply(mu, 2, mean)
+
+#visualize it
+#show the first 100 values in the distribution of mu at each weight value  
+#use type="n" to hide raw data
+plot(ADOS ~ SocialIQ.s, data=d, col= rangi2)
+#plot the MAP line, aka the mean mu for each verbal iq value
+lines(SIQ.seq, mu.mean)
+#plot a shaded region for 89%  PI
+shade(mu.PI, SIQ.seq)
+```
+  Standardized scale.
+  
+  Try GGPLOT!!!!!
+  
 
 2. Do the different aspects of IQ account for different portions of the variance in ADOS? 
 2.1. Does it make sense to have all IQ measures in the same model? First write a few lines answering the question and motivating your answer, including a discussion as to what happens when you put all of them in the same model. Then build a model following your answer. If your answer is "no", you are not free, you still have to answer: are there alternative ways of answering the question?
