@@ -47,21 +47,41 @@ d = data %>%
 #1.1. verbal iq 
 #standardize predictor - good habit
 d$VerbalIQ.s <- (d$VerbalIQ-mean(d$VerbalIQ))/sd(d$VerbalIQ)
+d$NonVerbalIQ.s <- (d$NonVerbalIQ-mean(d$NonVerbalIQ))/sd(d$NonVerbalIQ)
 d$ADOS.s <- (d$ADOS-mean(d$ADOS))/sd(d$ADOS)
+
+#justifying priors? Using old methods
+#VIQ
+# summary(glm(ADOS.s~VerbalIQ.s, family=gaussian, d)) 
+# MuMIn::r.squaredGLMM(glm(ADOS.s~VerbalIQ.s, family=gaussian, d))
+# ggplot(d, aes(ADOS.s,VerbalIQ.s))+
+#   geom_smooth()+
+#   ggtitle("ADOS depending on VerbalIQ")+
+#   theme_classic()
+#   
+# #nonvIQ
+# summary(glm(ADOS.s~NonVerbalIQ.s, family=gaussian, d)) 
+# MuMIn::r.squaredGLMM(glm(ADOS.s~NonVerbalIQ.s, family=gaussian, d))
+# ggplot(d, aes(ADOS.s,NonVerbalIQ.s))+
+#   geom_smooth()+
+#   ggtitle("ADOS depending on NonVerbalIQ")+
+#   theme_classic()
+
 
 
 #fit the model
 m1<- map(
   alist(
-    ADOS~dnorm(mu,sigma),
-    mu<- a + bQ *VerbalIQ.s, #linear model
-    a ~ dnorm(13,5), #expect that average IQ (when the standardized IQ = 0) to result in an average ADOS (around  13) and you expect the standard deviations to be 1. 2 standard deviations should explain 95% of the variance, being liberal here
-    bQ ~ dnorm(0,1), #might be not strict enough..
-    sigma~dunif(0,5) #ados is not standardized, it's mean value is around 13, 5 is a pretty liberal prior
+    ADOS.s~dnorm(mu,sigma),
+    mu<- a + b *VerbalIQ.s, #linear model
+    a ~ dnorm(0,1), #expect that average IQ (when the standardized IQ = 0) to result in an average standardized ADOS (around  0) and you expect the standard deviations to be 1. 2 standard deviations should explain 95% of the variance, being liberal here
+    b ~ dnorm(0,1), #might be not strict enough..
+    sigma~dunif(0,2) #if ados is not standardized, it's mean value is around 13, 5 is a pretty liberal prior. but when standardized the mean value is 0 and 
   ),
    data= d)
 
 precis(m1)
+plot(precis(m1))
 ```
   alpha:
   beta for Verbal IQ:
@@ -73,21 +93,47 @@ precis(m1)
 #these values will be on the horizontal axis
 VIQ.seq <- seq(from=-3, to = 3, length.out = 50) 
 
+#simulate ados scored, the default number of simulations is 1000, I increased it here to make simulation variance smoother
+sim.ados <- sim(m1, data=list(VerbalIQ.s=VIQ.seq), n =1e4)
+
+#summarize the simulated heights
+#find  89% posterior prediction interval of observable heights, across the values of weight in weight.seq
+ados.PI <- apply(sim.ados,2, PI, prob=0.89)
+
 #use link to compute mu
 #for each sample from posterior
 #and for each value of verbal iq in VIQ.seq
 mu <- link(m1, data = data.frame(VerbalIQ.s=VIQ.seq))
-mu.PI <- apply(mu, 2, PI)
 mu.mean <- apply(mu, 2, mean)
+mu.HPDI <- apply( mu , 2 , HPDI , prob=0.89 )
+
 
 #visualize it
 #show the first 100 values in the distribution of mu at each weight value  
 #use type="n" to hide raw data
-plot(ADOS ~ VerbalIQ.s, data=d, col= rangi2)
+plot(ADOS.s ~ VerbalIQ.s, data=d, col= rangi2)
 #plot the MAP line, aka the mean mu for each verbal iq value
 lines(VIQ.seq, mu.mean)
-#plot a shaded region for 89%  PI
-shade(mu.PI, VIQ.seq)
+#plot a shaded region for 89%  PI/ draw HPDI region for line
+shade(mu.HPDI, VIQ.seq)
+#plot a shaded region for 89% HPDI #draw PI region for simulated ados scores
+shade(ados.PI, VIQ.seq)
+mtext("89% prediction interval for ADOS score, as a fucntion of Verbal IQ.")
+
+mu<-link(m1)
+mu.mean<-apply(mu, 2, mean)
+mu.HPDI<-apply( mu , 2 , HPDI , prob=0.89 )
+
+#plotting
+plot( mu.mean ~ d$ADOS.s, col=rangi2 , ylim=range(mu.HPDI) ,
+xlab="Observed ADOS" , ylab="Predicted ADOS" )
+mtext("Verbal IQ: Predicted ADOS scores plotted against observed ADOS scores")
+abline( a = 0 , b = 1, lty = 2)
+for ( i in 1:nrow(d) )
+lines( rep(d$ADOS.s[i],2) , c(mu.HPDI[1,i],mu.HPDI[2,i]) ,
+col=rangi2 )
+
+
 ```
   Look up how to interpret standardized scales..
   Interpret this plot here.
@@ -102,15 +148,16 @@ d$NonVerbalIQ.s <- (d$NonVerbalIQ-mean(d$NonVerbalIQ))/sd(d$NonVerbalIQ)
 #fit the model
 m2<- map(
   alist(
-    ADOS~dnorm(mu,sigma),
+    ADOS.s~dnorm(mu,sigma),
     mu<- a + bNQ *NonVerbalIQ.s, #linear model
-    a ~ dnorm(13,1), #expect that average IQ (when the standardized IQ = 0) to result in an average ADOS (around  13) and you expect the standard deviations to be 1. 2 standard deviations should explain 95% of the variance, being liberal here
+    a ~ dnorm(0,1), #expect that average IQ (when the standardized IQ = 0) to result in an average ADOS (around  13) and you expect the standard deviations to be 1. 2 standard deviations should explain 95% of the variance, being liberal here
     bNQ ~ dnorm(0,1), #might be not strict enough..
-    sigma~dunif(0,5) #ados is not standardized, it's mean value is around 13, 5 is a pretty liberal prior
+    sigma~dunif(0,2) #ados is not standardized, it's mean value is around 13, 5 is a pretty liberal prior
   ),
    data= d)
 
 precis(m2)
+plot(precis(m2))
 ```
   alpha:
   beta:
@@ -122,21 +169,45 @@ precis(m2)
 #these values will be on the horizontal axis
 NVIQ.seq <- seq(from=-3, to = 3, length.out = 50) 
 
+#simulate ados scored, the default number of simulations is 1000, I increased it here to make simulation variance smoother
+sim.ados <- sim(m2, data=list(NonVerbalIQ.s=NVIQ.seq), n =1e4)
+
+#summarize the simulated heights
+#find  89% posterior prediction interval of observable heights, across the values of weight in weight.seq
+ados.PI <- apply(sim.ados,2, PI, prob=0.89)
+
 #use link to compute mu
 #for each sample from posterior
 #and for each value of verbal iq in VIQ.seq
 mu <- link(m2, data = data.frame(NonVerbalIQ.s=NVIQ.seq))
-mu.PI <- apply(mu, 2, PI)
 mu.mean <- apply(mu, 2, mean)
+mu.HPDI <- apply( mu , 2 , HPDI , prob=0.89 )
+
 
 #visualize it
 #show the first 100 values in the distribution of mu at each weight value  
 #use type="n" to hide raw data
-plot(ADOS ~ NonVerbalIQ.s, data=d, col= rangi2)
+plot(ADOS.s ~ NonVerbalIQ.s, data=d, col= rangi2)
 #plot the MAP line, aka the mean mu for each verbal iq value
 lines(NVIQ.seq, mu.mean)
-#plot a shaded region for 89%  PI
-shade(mu.PI, NVIQ.seq)
+#plot a shaded region for 89%  PI/ draw HPDI region for line
+shade(mu.HPDI, NVIQ.seq)
+#plot a shaded region for 89% HPDI #draw PI region for simulated ados scores
+shade(ados.PI, NVIQ.seq)
+mtext("89% prediction interval for ADOS score, as a fucntion of NonVerbal IQ.")
+
+mu<-link(m2)
+mu.mean <- apply(mu, 2, mean)
+mu.HPDI <- apply( mu , 2 , HPDI , prob=0.89 )
+
+#plotting
+plot( mu.mean ~ d$ADOS.s, col=rangi2 , ylim=range(mu.HPDI) ,
+xlab="Observed ADOS" , ylab="Predicted ADOS" )
+mtext("NonVerbal IQ: Predicted ADOS scores plotted against observed ADOS scores")
+abline( a = 0 , b = 1, lty = 2)
+for ( i in 1:nrow(d) )
+lines( rep(d$ADOS.s[i],2) , c(mu.HPDI[1,i],mu.HPDI[2,i]) ,
+col=rangi2 )
 ```
   Standardized scale again.
   Interpret!
@@ -151,15 +222,16 @@ d$SocialIQ.s <- (d$SocialIQ-mean(d$SocialIQ))/sd(d$SocialIQ)
 #fit the model
 m3<- map(
   alist(
-    ADOS~dnorm(mu,sigma),
+    ADOS.s~dnorm(mu,sigma),
     mu<- a + bSQ *SocialIQ.s, #linear model
-    a ~ dnorm(13,1), #expect that average IQ (when the standardized IQ = 0) to result in an average ADOS (around  13) and you expect the standard deviations to be 1. 2 standard deviations should explain 95% of the variance, being liberal here
+    a ~ dnorm(0,1), #expect that average IQ (when the standardized IQ = 0) to result in an average ADOS (around  13) and you expect the standard deviations to be 1. 2 standard deviations should explain 95% of the variance, being liberal here
     bSQ ~ dnorm(0,1), #might be not strict enough..
-    sigma~dunif(0,5) #ados is not standardized, it's mean value is around 13, 5 is a pretty liberal prior
+    sigma~dunif(0,2) #ados is not standardized, it's mean value is around 13, 5 is a pretty liberal prior
   ),
    data= d)
 
 precis(m3)
+plot(precis(m3))
 ```
   alpha:
   beta:
@@ -171,6 +243,13 @@ precis(m3)
 #these values will be on the horizontal axis
 SIQ.seq <- seq(from=-3, to = 3, length.out = 50) 
 
+#simulate ados scored, the default number of simulations is 1000, I increased it here to make simulation variance smoother
+sim.ados <- sim(m3, data=list(SocialIQ.s=SIQ.seq), n =1e4)
+
+#summarize the simulated heights
+#find  89% posterior prediction interval of observable heights, across the values of weight in weight.seq
+ados.PI <- apply(sim.ados,2, PI, prob=0.89)
+
 #use link to compute mu
 #for each sample from posterior
 #and for each value of verbal iq in VIQ.seq
@@ -181,11 +260,28 @@ mu.mean <- apply(mu, 2, mean)
 #visualize it
 #show the first 100 values in the distribution of mu at each weight value  
 #use type="n" to hide raw data
-plot(ADOS ~ SocialIQ.s, data=d, col= rangi2)
+plot(ADOS.s ~ SocialIQ.s, data=d, col= rangi2)
 #plot the MAP line, aka the mean mu for each verbal iq value
 lines(SIQ.seq, mu.mean)
 #plot a shaded region for 89%  PI
 shade(mu.PI, SIQ.seq)
+#plot a shaded region for 89%  PI
+shade(ados.PI, SIQ.seq)
+mtext("89% prediction interval for ADOS score, as a fucntion of Social IQ.")
+
+mu<-link(m3)
+mu.mean <- apply(mu, 2, mean)
+mu.HPDI <- apply( mu , 2 , HPDI , prob=0.89 )
+
+#plotting
+plot( mu.mean ~ d$ADOS.s, col=rangi2 , ylim=range(mu.HPDI) ,
+xlab="Observed ADOS" , ylab="Predicted ADOS" )
+mtext("Social IQ: Predicted ADOS scores plotted against observed ADOS scores")
+abline( a = 0 , b = 1, lty = 2)
+for ( i in 1:nrow(d) )
+lines( rep(d$ADOS.s[i],2) , c(mu.HPDI[1,i],mu.HPDI[2,i]) ,
+col=rangi2 )
+
 ```
   Standardized scale.
   
