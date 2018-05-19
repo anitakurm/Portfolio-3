@@ -289,7 +289,13 @@ col=rangi2 )
   
 
 2. Do the different aspects of IQ account for different portions of the variance in ADOS? 
-2.1. Does it make sense to have all IQ measures in the same model? First write a few lines answering the question and motivating your answer, including a discussion as to what happens when you put all of them in the same model. Then build a model following your answer. If your answer is "no", you are not free, you still have to answer: are there alternative ways of answering the question?
+```{r}
+cor(select(d, VerbalIQ.s, NonVerbalIQ.s, SocialIQ.s))
+```
+
+
+2.1. Does it make sense to have all IQ measures in the same model? First write a few lines
+answering the question and motivating your answer, including a discussion as to what happens when you put all of them in the same model. Then build a model following your answer. If your answer is "no", you are not free, you still have to answer: are there alternative ways of answering the question?
 2.2. Build the model, assess its quality, write a few lines interpreting the results.
 
 3. Let's now include also the TD children. Does it make sense to ask whether IQ and ADOS are related? Motivate your answer. In any case, if you wanted to build a model to answer that question, which model would you build? Run the model, assess its quality, write a few lines interpreting the results.
