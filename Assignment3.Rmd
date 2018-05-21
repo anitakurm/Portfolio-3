@@ -320,11 +320,11 @@ MultiModel<- map(
   alist(
     ADOS.s~dnorm(mu,sigma),
     mu <- a+bv*VerbalIQ.s + bnv*NonVerbalIQ.s+bs*SocialIQ.s, #multivariate linear model
-    a ~ dnorm(0,1), #expect that average IQ (when the standardized IQ = 0) to result in an average ADOS (around  13) and you expect the standard deviations to be 1. 2 standard deviations should explain 95% of the variance, being liberal here
-    bv ~ dnorm(0,1), #might be not strict enough..
+    a ~ dnorm(0,1), 
+    bv ~ dnorm(0,1), 
     bnv ~ dnorm(0,1),
     bs ~ dnorm(0,1),
-    sigma~dunif(0,2) #ados is standardized, it's mean value is around 0, 2 is a pretty liberal prior
+    sigma~dunif(0,2) 
   ),
    data= d)
 
@@ -378,6 +378,73 @@ for (i in 1:nrow(d))
 
 
 3. Let's now include also the TD children. Does it make sense to ask whether IQ and ADOS are related? Motivate your answer. In any case, if you wanted to build a model to answer that question, which model would you build? Run the model, assess its quality, write a few lines interpreting the results.
+```{r}
+#focus in visit 1, children with asd and td too
+dt = data %>%
+  #Only choose the first visit
+  filter(Visit == 1)
+
+dt <- na.omit(dt)
+
+rescalelist = c("NonVerbalIQ", "VerbalIQ", "SocialIQ", "ADOS") #list of variables which should be rescaled
+
+dt.s = dt[, colnames(dt) %in% rescalelist] %>% #select rows to rescale
+  lapply(. , function(x) scale(x, center = mean(x, na.rm =T), scale = sd(x, na.rm = T))) %>%  #adding mean and sd manually to add the na.rm = T to removes NA's
+  cbind(. , dt[,! colnames(dt) %in% rescalelist]) #bind with remaining rows
+
+# d$VerbalIQ.s <- (d$VerbalIQ-mean(d$VerbalIQ))/sd(d$VerbalIQ)
+# d$NonVerbalIQ.s <- (d$NonVerbalIQ-mean(d$NonVerbalIQ))/sd(d$NonVerbalIQ)
+# d$ADOS.s <- (d$ADOS-mean(d$ADOS))/sd(d$ADOS)
+
+#fit the model
+MultiModel<- map(
+  alist(
+    ADOS~dnorm(mu,sigma),
+    mu <- a+bv*VerbalIQ + bnv*NonVerbalIQ+bs*SocialIQ, #multivariate linear model
+    a ~ dnorm(0,1), 
+    bv ~ dnorm(0,1), 
+    bnv ~ dnorm(0,1),
+    bs ~ dnorm(0,1),
+    sigma~dunif(0,2) 
+  ),
+   data= dt.s)
+
+precis(MultiModel, corr = T)
+plot(precis(MultiModel))
+
+
+############# TD model
+mu <- link( MultiModel )
+# summarize samples across cases
+mu.mean <- apply( mu , 2 , mean )
+mu.HPDI <- apply( mu , 2 , HPDI )
+# simulate observations
+# again no new data, so uses original data
+ADOS.sim <- sim( MultiModel , n=1e4 )
+ADOS.HPDI <- apply( ADOS.sim , 2 , HPDI )
+
+#plotting
+plot( mu.mean ~ dt.s$ADOS , col=rangi2 , ylim=range(mu.HPDI) ,
+xlab="Observed ADOS" , ylab="Predicted ADOS" )
+mtext(" TD + ASD |Predicted ADOS scores plotted against observed ADOS scores")
+abline( a = 0 , b = 1, lty = 2)
+for ( i in 1:nrow(dt.s) )
+lines( rep(dt.s$ADOS[i],2) , c(mu.HPDI[1,i],mu.HPDI[2,i]) ,
+col=rangi2 )
+
+```
+
+So that's the model
+Now.. answering questions:
+```{r}
+#Examining the ADOS for TD children, we see that the majority (66.7%) of the TD children have an ADOS score of zero (mean = 0.8, SD = 1.5) comparetively only one (2,9%) of the children with ASD have an ADOS score of zero. Therefore adding TD children to the model might negatively affect predictive power, hereby introducing a systematic  bias in which in overpredicts the ADOS score for TD children while underpredicting the ADOS score for children with ASD. This effect is seen in figure x and x2 where TD seems introduce the expected bias. This bias seems to be diminished if TD is added to the model, as seen in figure x3. Even adding an interaction term between the (as seen in figure x4) seem to still contain the bias, altough it is highly improved. This is caused by the fact that the variation in ADOS for the two groups is highly different.
+summary(v1ASD$ADOS)
+summary(v1$ADOS[v1$ASD == 0])
+sum(v1$ADOS[v1$ASD == 0] == 0)/length(v1$ADOS[v1$ASD == 0])
+sum(v1$ADOS[v1$ASD == 1] == 0)/length(v1$ADOS[v1$ASD == 1])
+sd(v1$ADOS[v1$ASD == 0])
+```
+
 
 4. Let's discuss contents:
 4.1. You have three scores for IQ, do they show shared variance? Is that the same in TD and ASD? What does that tell us about IQ?
