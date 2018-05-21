@@ -291,12 +291,91 @@ col=rangi2 )
 2. Do the different aspects of IQ account for different portions of the variance in ADOS? 
 ```{r}
 cor(select(d, VerbalIQ.s, NonVerbalIQ.s, SocialIQ.s))
+
+####### Thanks Pernille and Kenneth!
+# this unshared variance explains any of the variance in ADOS and anaylising the betas seems to indicate that this unshared variance might explain some of the variance in ADOS 
+resid_df = data.frame(residtype = c(rep("SIQ", length(d$ADOS.s)), rep("VIQ", length(d$ADOS.s)), rep("NVIQ", length(d$ADOS.s))),
+                   resid = c(lm(SocialIQ.s~VerbalIQ.s+NonVerbalIQ.s, d)$residuals, v_resid = lm(VerbalIQ.s~SocialIQ.s+NonVerbalIQ.s, d)$residuals, nv_resid = lm(NonVerbalIQ.s~VerbalIQ.s+SocialIQ.s, d)$residuals),
+                   ADOS.s = rep(d$ADOS.s, 3)
+           )
+
+ggplot(resid_df, aes(x = ADOS.s, y = resid, color=residtype))+
+  geom_smooth(method = lm, aes(fill=residtype)) + 
+  geom_jitter() +
+  theme_minimal()+
+  ggtitle("Residuals of IQ correlation models plotted against each other")
+
+
 ```
 
 
 2.1. Does it make sense to have all IQ measures in the same model? First write a few lines
 answering the question and motivating your answer, including a discussion as to what happens when you put all of them in the same model. Then build a model following your answer. If your answer is "no", you are not free, you still have to answer: are there alternative ways of answering the question?
+ABOVE!!!!!!!!!
+
 2.2. Build the model, assess its quality, write a few lines interpreting the results.
+```{r}
+#fit the model
+MultiModel<- map(
+  alist(
+    ADOS.s~dnorm(mu,sigma),
+    mu <- a+bv*VerbalIQ.s + bnv*NonVerbalIQ.s+bs*SocialIQ.s, #multivariate linear model
+    a ~ dnorm(0,1), #expect that average IQ (when the standardized IQ = 0) to result in an average ADOS (around  13) and you expect the standard deviations to be 1. 2 standard deviations should explain 95% of the variance, being liberal here
+    bv ~ dnorm(0,1), #might be not strict enough..
+    bnv ~ dnorm(0,1),
+    bs ~ dnorm(0,1),
+    sigma~dunif(0,2) #ados is standardized, it's mean value is around 0, 2 is a pretty liberal prior
+  ),
+   data= d)
+
+precis(MultiModel, corr = T)
+plot(precis(MultiModel))
+
+
+
+```
+
+I want to try smth:
+```{r}
+#call link without specifying new data, so it uses original data to find the mean of variables
+mu <- link(MultiModel)
+
+#summarize samples across cases
+mu.mean <- apply(mu, 2, mean)
+mu.PI <- apply(mu, 2, PI)
+
+#these values will be on the horizontal axis
+M.seq <- seq(from=-3, to = 3, length.out = 50) 
+
+
+
+# #visualize it
+# #show the first 100 values in the distribution of mu at each weight value  
+# #use type="n" to hide raw data
+# plot(ADOS.s ~ VerbalIQ.s+ NonVerbalIQ.s+SocialIQ.s, data=d, col= rangi2)
+# #plot the MAP line, aka the mean mu for each verbal iq value
+# lines(M.seq, mu.mean)
+# #plot a shaded region for 89%  PI
+# shade(mu.PI, M.seq)
+# #plot a shaded region for 89%  PI
+# shade(multi.PI, M.seq)
+# mtext("89% prediction interval for ADOS score, as a fucntion of all IQ variables.")
+
+#plot the simulated observations (predictions) against observed
+plot(mu.mean ~ d$ADOS.s, col=rangi2, ylim=range(mu.PI),
+     xlab="Observed ADOS scores", ylab="Predicted ADOS scores")
+mtext("All IQ Variables: Predicted ADOS scores plotted against observed ADOS scores")
+#add a line to show perfect prediction 
+abline(a=0, b=1, lty=2)
+#add line segments for the confidence interval of each prediction
+#loop over all cases 
+for (i in 1:nrow(d))
+  #draw the line segment
+  lines(rep(d$ADOS.s[i],2), c(mu.PI[1,i],mu.PI[2,i]),
+        col=rangi2)
+```
+
+
 
 3. Let's now include also the TD children. Does it make sense to ask whether IQ and ADOS are related? Motivate your answer. In any case, if you wanted to build a model to answer that question, which model would you build? Run the model, assess its quality, write a few lines interpreting the results.
 
