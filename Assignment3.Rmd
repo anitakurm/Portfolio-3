@@ -299,9 +299,9 @@ resid_df = data.frame(residtype = c(rep("SIQ", length(d$ADOS.s)), rep("VIQ", len
                    ADOS.s = rep(d$ADOS.s, 3)
            )
 
-ggplot(resid_df, aes(x = ADOS.s, y = resid, color=residtype))+
+ggplot(resid_df, aes(x = resid, y = ADOS.s, color=residtype))+
   geom_smooth(method = lm, aes(fill=residtype)) + 
-  geom_jitter() +
+  geom_point() +
   theme_minimal()+
   ggtitle("Residuals of IQ correlation models plotted against each other")
 
@@ -502,6 +502,7 @@ m <- map( #adding TD to the model
   ), data = dt.s)
 
 precis(m)
+plot(precis(m))
 
 #call link without specifying new data, so it uses original data to find the mean of variables
 mu <- link(m)
@@ -514,16 +515,16 @@ mu.PI <- apply(mu, 2, PI)
 M.seq <- seq(from=-3, to = 3, length.out = 50) 
 
 #plot the simulated observations (predictions) against observed
-plot(mu.mean ~ dt$ADOS, col=rangi2, ylim=range(mu.PI),
+plot(mu.mean ~ dt.s$ADOS, col=rangi2, ylim=range(mu.PI),
      xlab="Observed ADOS scores", ylab="Predicted ADOS scores")
 mtext("IQ Variables and Diagnosis: Predicted ADOS scores plotted against observed ADOS scores")
 #add a line to show perfect prediction 
 abline(a=0, b=1, lty=2)
 #add line segments for the confidence interval of each prediction
 #loop over all cases 
-for (i in 1:nrow(dt))
+for (i in 1:nrow(dt.s))
   #draw the line segment
-  lines(rep(dt$ADOS[i],2), c(mu.PI[1,i],mu.PI[2,i]),
+  lines(rep(dt.s$ADOS[i],2), c(mu.PI[1,i],mu.PI[2,i]),
         col=rangi2)
 
 ```
@@ -531,6 +532,31 @@ for (i in 1:nrow(dt))
 
 4. Let's discuss contents:
 4.1. You have three scores for IQ, do they show shared variance? Is that the same in TD and ASD? What does that tell us about IQ?
+```{r}
+#get data with only tds
+td = dt.s %>%
+  #Only choose the tds
+  filter(ASD == "0")
+
+cor(select(td, VerbalIQ, NonVerbalIQ, SocialIQ))
+
+####### Thanks Pernille and Kenneth!
+# this unshared variance explains any of the variance in ADOS and anaylising the betas seems to indicate that this unshared variance might explain some of the variance in ADOS 
+resid_df = data.frame(residtype = c(rep("SIQ", length(td$ADOS)), rep("VIQ", length(td$ADOS)), rep("NVIQ", length(td$ADOS))),
+                   resid = c(lm(SocialIQ~VerbalIQ+NonVerbalIQ, td)$residuals, v_resid = lm(VerbalIQ~SocialIQ+NonVerbalIQ, td)$residuals, nv_resid = lm(NonVerbalIQ~VerbalIQ+SocialIQ, td)$residuals),
+                   ADOS = rep(td$ADOS, 3)
+           )
+
+ggplot(resid_df, aes(x = resid, y = ADOS, color=residtype))+
+  geom_smooth(method = lm, aes(fill=residtype)) + 
+  geom_point() +
+  theme_minimal()+
+  ggtitle("Residuals of IQ correlation models plotted against each other in TD data")
+
+
+```
+
+
 4.2. You have explored the relation between IQ and ADOS. How do you explain that relation from a cognitive perspective? N.B. You can present alternative hypotheses.
 
 5. Bonus questions: Including measurement errors. 
