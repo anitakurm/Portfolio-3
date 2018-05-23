@@ -437,12 +437,72 @@ col=rangi2 )
 So that's the model
 Now.. answering questions:
 ```{r}
-#Examining the ADOS for TD children, we see that the majority (66.7%) of the TD children have an ADOS score of zero (mean = 0.8, SD = 1.5) comparetively only one (2,9%) of the children with ASD have an ADOS score of zero. Therefore adding TD children to the model might negatively affect predictive power, hereby introducing a systematic  bias in which in overpredicts the ADOS score for TD children while underpredicting the ADOS score for children with ASD. This effect is seen in figure x and x2 where TD seems introduce the expected bias. This bias seems to be diminished if TD is added to the model, as seen in figure x3. Even adding an interaction term between the (as seen in figure x4) seem to still contain the bias, altough it is highly improved. This is caused by the fact that the variation in ADOS for the two groups is highly different.
-summary(v1ASD$ADOS)
-summary(v1$ADOS[v1$ASD == 0])
-sum(v1$ADOS[v1$ASD == 0] == 0)/length(v1$ADOS[v1$ASD == 0])
-sum(v1$ADOS[v1$ASD == 1] == 0)/length(v1$ADOS[v1$ASD == 1])
-sd(v1$ADOS[v1$ASD == 0])
+#looking up if iq and ados are related
+summary(dt$ADOS)
+summary(dt$ADOS[dt$ASD == 0])
+sum(dt$ADOS[dt$ASD == 0] == 0)/length(dt$ADOS[dt$ASD == 0])
+sum(dt$ADOS[dt$ASD == 1] == 0)/length(dt$ADOS[dt$ASD == 1])
+sd(dt$ADOS[dt$ASD == 0])
+sd(dt$ADOS[dt$ASD == 1])
+mean(dt$ADOS[dt$ASD == 0])
+
+dt$ADOS<- as.numeric(dt$ADOS)
+dt$ASD<- as.factor(dt$ASD)
+ggplot(dt, aes(ADOS,na.rm= T, color=ASD))+
+  geom_density()+
+  theme_minimal()+
+  scale_colour_discrete(name = "Diagnosis", labels = c("TD", "ASD"))+
+  ggtitle("Distribution of ADOS scores across TDs and ASDs")
+
+ggplot(dt, aes(ADOS,na.rm= T))+
+  geom_density(color="green")+
+  theme_minimal()+
+  #scale_colour_discrete(name = "Diagnosis", labels = c("TD", "ASD"))+
+  ggtitle("Distribution of ADOS scores across ASDs and TDs together")
+
+ggplot(dt, aes(ADOS, VerbalIQ,color=ASD))+
+  geom_smooth()+
+  geom_jitter()+
+  theme_minimal()+
+  scale_colour_discrete(name = "Diagnosis", labels = c("TD", "ASD"))+
+  ggtitle("Verbal IQ depending on ADOS scores in TDs and ASDs")
+
+ggplot(dt, aes(ADOS, NonVerbalIQ,color=ASD))+
+  geom_smooth()+
+  geom_jitter()+
+  theme_minimal()+
+  scale_colour_discrete(name = "Diagnosis", labels = c("TD", "ASD"))+
+  ggtitle("NonVerbal IQ depending on ADOS scores in TDs and ASDs")
+
+ggplot(dt, aes(ADOS, SocialIQ,color=ASD))+
+  geom_smooth()+
+  geom_jitter()+
+  theme_minimal()+
+  scale_colour_discrete(name = "Diagnosis", labels = c("TD", "ASD"))+
+  ggtitle("Social IQ depending on ADOS scores in TDs and ASDs")
+
+ggplot(dt, aes(ASD, SocialIQ, color=ASD))+
+  geom_violin()+
+  theme_minimal()+
+  scale_colour_discrete(name = "Diagnosis", labels = c("TD", "ASD"))+
+  ggtitle("Social IQ depending on diagnosis")
+
+dt<- na.omit(dt)
+
+m <- map( #adding TD to the model
+  alist(
+    ADOS ~ dnorm(mu, sigma),
+    mu <- a+bs*SocialIQ+bv*VerbalIQ + bnv*NonVerbalIQ + bd * ASD,
+    a ~ dnorm(0, 1), 
+    bs ~ dnorm(0, 1),
+    bv ~ dnorm(0, 1),
+    bnv ~ dnorm(0, 1),
+    bd ~ dnorm(1, 0.5),
+    sigma ~ dunif(0,2)
+  ), data = dt.s)
+
+precis(m)
+
 ```
 
 
