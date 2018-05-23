@@ -503,6 +503,29 @@ m <- map( #adding TD to the model
 
 precis(m)
 
+#call link without specifying new data, so it uses original data to find the mean of variables
+mu <- link(m)
+
+#summarize samples across cases
+mu.mean <- apply(mu, 2, mean)
+mu.PI <- apply(mu, 2, PI)
+
+#these values will be on the horizontal axis
+M.seq <- seq(from=-3, to = 3, length.out = 50) 
+
+#plot the simulated observations (predictions) against observed
+plot(mu.mean ~ dt$ADOS, col=rangi2, ylim=range(mu.PI),
+     xlab="Observed ADOS scores", ylab="Predicted ADOS scores")
+mtext("IQ Variables and Diagnosis: Predicted ADOS scores plotted against observed ADOS scores")
+#add a line to show perfect prediction 
+abline(a=0, b=1, lty=2)
+#add line segments for the confidence interval of each prediction
+#loop over all cases 
+for (i in 1:nrow(dt))
+  #draw the line segment
+  lines(rep(dt$ADOS[i],2), c(mu.PI[1,i],mu.PI[2,i]),
+        col=rangi2)
+
 ```
 
 
